@@ -102,65 +102,66 @@ def config():
             print(f"'{new_file_path}' を作成しました。")
 
 def levlist():
-    levels_path = './levels'
-        
-    extension_to_category = {
-        'jpg': 'jacket',
-        'png': 'jacket',
-        'jfif':'jacket',
-        'usc': 'chart',
-        'mp3': 'bgm'
-    }
-
-    special_categories = ['bgm', 'chart', 'jacket']
-
+    levels_directory = './levels'
     json_file_path = 'temporary.json'
     filename = 'temporary.json'
 
-    # 既存の config.json を読み込む（存在しない場合は空の辞書にする）
+    extension_to_category = {
+        'jpg': 'jacket',
+        'png': 'jacket',
+        'jfif': 'jacket',
+        'usc': 'chart',
+        'mp3': 'bgm'
+    }
+    special_categories = ['bgm', 'chart', 'jacket']
+
+    # 既存の config 読み込み
     if os.path.exists(json_file_path):
         with open(json_file_path, 'r', encoding='utf-8') as file:
             existing_config = json.load(file)
     else:
         existing_config = {}
 
-    # levels内のサブフォルダを取得（1, 2, 3 ...）
-    subdirectories = [d for d in os.listdir(levels_directory) if os.path.isdir(os.path.join(levels_directory, d))]
-
-    # 更新後の config データ
     new_config = {}
+    used_keys = {}
 
-    for subdirectory in subdirectories:
-        subdirectory_path = os.path.join(levels_directory, subdirectory)
-        file_names = os.listdir(subdirectory_path)
+    # 最下層フォルダ（子ディレクトリがない）だけを対象にする
+    for path in Path(levels_directory).rglob("*"):
+        if path.is_dir():
+            subdirs = [p for p in path.iterdir() if p.is_dir()]
+            files = [p for p in path.iterdir() if p.is_file()]
+            if not subdirs and files:
+                categorized_files = {}
 
-    # カテゴリに分類されたファイルデータを保存する辞書
-        categorized_files = {}
+                for file_path in files:
+                    ext = file_path.suffix.lstrip('.').lower()
+                    category = extension_to_category.get(ext, 'other_files')
+                    file_name = file_path.name
 
-        for file_name in file_names:
-            name, ext = os.path.splitext(file_name)
-            ext = ext.lstrip('.')
-            category = extension_to_category.get(ext, 'other_files')
+                    if category in special_categories:
+                        categorized_files[category] = file_name
+                    else:
+                        categorized_files.setdefault(category, []).append(file_name)
 
-        # 特定カテゴリなら単一ファイルとして保存
-            if category in special_categories:
-                categorized_files[category] = file_name
-            else:
-                if category not in categorized_files:
-                    categorized_files[category] = []
-                categorized_files[category].append(file_name)
+                # 最下層フォルダ名をキーとする
+                base_key = path.name
+                unique_key = base_key
+                count = 1
+                while unique_key in new_config:
+                    unique_key = f"{base_key}_{count}"
+                    count += 1
 
-    # 既存のデータとマージ（title, rating, utsk-id を保持）
-        existing_data = existing_config.get(subdirectory, {})
-        for key in ['title', 'rating', 'utsk-id']:
-            if key in existing_data:
-                categorized_files[key] = existing_data[key]
+                # 既存の title/rating/utsk-id を残す
+                existing_data = existing_config.get(unique_key, {})
+                for key in ['title', 'rating', 'utsk-id']:
+                    if key in existing_data:
+                        categorized_files[key] = existing_data[key]
 
-        new_config[subdirectory] = categorized_files
+                new_config[unique_key] = categorized_files
 
-    # JSONファイルに書き込み
-    with open(json_file_path, 'w', encoding='utf-8') as file:
-        json.dump(new_config, file, ensure_ascii=False, indent=4)
+    # JSONに書き込み
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(new_config, file, ensure_ascii=False, indent=2)
 
     print("save success.")
     
@@ -404,7 +405,7 @@ def ob():
                     "isOwner" : "true"
                 }
 
-                print("Token has expired and has been renewedToken has expired and has been renewed")
+                print("Token updated")
         
             ext = os.path.splitext(postfile_path)[1].lower()
 
